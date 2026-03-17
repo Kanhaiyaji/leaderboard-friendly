@@ -121,7 +121,6 @@ function getCacheAgeMinutes() {
 function setupEventListeners() {
     const addBtn = document.getElementById('addUserBtn');
     const refreshBtn = document.getElementById('refreshBtn');
-    const presetBtn = document.getElementById('presetBtn');
     const resetBtn = document.getElementById('resetUsersBtn');
     const input = document.getElementById('newUserInput');
     const toggleBulkBtn = document.getElementById('toggleBulkBtn');
@@ -133,7 +132,6 @@ function setupEventListeners() {
         showLoader();
         fetchGitHubData();
     });
-    if (presetBtn) presetBtn.addEventListener('click', loadPresetUsers);
     if (resetBtn) resetBtn.addEventListener('click', resetAllUsers);
     if (input) input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -325,16 +323,6 @@ function renderTrackedUsers() {
         
         container.appendChild(userTag);
     });
-}
-
-// Load Preset Users
-function loadPresetUsers() {
-    githubUsers = [...DEFAULT_USERS];
-    saveUsersToStorage();
-    renderTrackedUsers();
-    
-    showLoader();
-    fetchGitHubData();
 }
 
 // Reset All Users
