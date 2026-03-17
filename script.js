@@ -1,5 +1,5 @@
 // Default GitHub Users
-const DEFAULT_USERS = ['Kanhaiyaji', 'ius-sharma', 'stillaayush'];
+const DEFAULT_USERS = ['Kanhaiyaji', 'ius-sharma', 'stillaayush', 'raj-git-07'];
 const STORAGE_KEY = 'github_leaderboard_users';
 
 // Emoji medals for top 3
