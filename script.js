@@ -83,6 +83,9 @@ function setupEventListeners() {
     const presetBtn = document.getElementById('presetBtn');
     const resetBtn = document.getElementById('resetUsersBtn');
     const input = document.getElementById('newUserInput');
+    const toggleBulkBtn = document.getElementById('toggleBulkBtn');
+    const bulkAddBtn = document.getElementById('bulkAddBtn');
+    const closeBulkBtn = document.getElementById('closeBulkBtn');
     
     if (addBtn) addBtn.addEventListener('click', handleAddUser);
     if (refreshBtn) refreshBtn.addEventListener('click', () => {
@@ -97,6 +100,17 @@ function setupEventListeners() {
             handleAddUser();
         }
     });
+    
+    // Bulk Add Event Listeners
+    if (toggleBulkBtn) {
+        toggleBulkBtn.addEventListener('click', toggleBulkAddSection);
+    }
+    if (bulkAddBtn) {
+        bulkAddBtn.addEventListener('click', handleBulkAddUsers);
+    }
+    if (closeBulkBtn) {
+        closeBulkBtn.addEventListener('click', closeBulkAddSection);
+    }
 }
 
 // Handle Add User
@@ -107,26 +121,108 @@ function handleAddUser() {
     const username = input.value.trim();
     
     if (!username) {
-        alert('Please enter a GitHub username');
+        showNotification('Please enter a GitHub username', 'error');
         return;
     }
     
     if (githubUsers.includes(username)) {
-        alert('This user is already tracked');
+        showNotification(`@${username} is already tracked`, 'warning');
         input.value = '';
         return;
     }
     
     if (githubUsers.length >= 10) {
-        alert('Maximum 10 users allowed');
+        showNotification('Maximum 10 users allowed', 'error');
         return;
     }
     
+    // Add user
     githubUsers.push(username);
     saveUsersToStorage();
     renderTrackedUsers();
     input.value = '';
     input.focus();
+    
+    // Show success and fetch
+    showNotification(`✓ Added @${username}!`, 'success');
+    showLoader();
+    fetchGitHubData();
+}
+
+// Toggle Bulk Add Section
+function toggleBulkAddSection() {
+    const bulkSection = document.getElementById('bulkAddSection');
+    const toggleBtn = document.getElementById('toggleBulkBtn');
+    
+    if (bulkSection.style.display === 'none' || bulkSection.style.display === '') {
+        bulkSection.style.display = 'block';
+        toggleBtn.textContent = '🔽 BULK';
+        document.getElementById('bulkUserInput').focus();
+    } else {
+        bulkSection.style.display = 'none';
+        toggleBtn.textContent = '📋 BULK';
+    }
+}
+
+// Close Bulk Add Section
+function closeBulkAddSection() {
+    const bulkSection = document.getElementById('bulkAddSection');
+    const toggleBtn = document.getElementById('toggleBulkBtn');
+    const textarea = document.getElementById('bulkUserInput');
+    
+    bulkSection.style.display = 'none';
+    toggleBtn.textContent = '📋 BULK';
+    textarea.value = '';
+}
+
+// Handle Bulk Add Users
+function handleBulkAddUsers() {
+    const textarea = document.getElementById('bulkUserInput');
+    const input = textarea.value.trim();
+    
+    if (!input) {
+        alert('Please enter at least one username');
+        return;
+    }
+    
+    // Parse usernames (support both comma-separated and newline-separated)
+    let usernames = input
+        .split(/[,\n]/)  // Split by comma or newline
+        .map(u => u.trim())
+        .filter(u => u.length > 0)
+        .filter((u, idx, arr) => arr.indexOf(u) === idx); // Remove duplicates
+    
+    if (usernames.length === 0) {
+        alert('No valid usernames found');
+        return;
+    }
+    
+    // Check if adding would exceed limit
+    const availableSlots = 10 - githubUsers.length;
+    if (usernames.length > availableSlots) {
+        alert(`Can only add ${availableSlots} more users (max 10 total)`);
+        usernames = usernames.slice(0, availableSlots);
+    }
+    
+    // Filter out already tracked users
+    const newUsers = usernames.filter(u => !githubUsers.includes(u));
+    
+    if (newUsers.length === 0) {
+        alert('All these users are already tracked');
+        return;
+    }
+    
+    // Add all new users
+    githubUsers.push(...newUsers);
+    saveUsersToStorage();
+    renderTrackedUsers();
+    
+    // Clear textarea and close section
+    textarea.value = '';
+    closeBulkAddSection();
+    
+    // Show success message
+    alert(`✓ Added ${newUsers.length} user${newUsers.length > 1 ? 's' : ''}!\n\nLoading data...`);
     
     showLoader();
     fetchGitHubData();
@@ -381,3 +477,66 @@ window.addEventListener('beforeunload', () => {
         clearInterval(refreshInterval);
     }
 });
+
+// Show notification toast
+function showNotification(message, type = 'info') {
+    // Remove existing notification
+    const existingNotif = document.getElementById('notificationToast');
+    if (existingNotif) existingNotif.remove();
+    
+    // Create notification element
+    const notif = document.createElement('div');
+    notif.id = 'notificationToast';
+    notif.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? 'rgba(50, 200, 100, 0.9)' : type === 'error' ? 'rgba(255, 80, 80, 0.9)' : 'rgba(100, 150, 255, 0.9)'};
+        color: #ffffff;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        max-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        animation: slideInRight 0.3s ease;
+    `;
+    notif.textContent = message;
+    
+    document.body.appendChild(notif);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        notif.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => notif.remove(), 300);
+    }, 3000);
+}
+
+// Add animation styles if not already present
+if (!document.getElementById('notificationStyles')) {
+    const style = document.createElement('style');
+    style.id = 'notificationStyles';
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes slideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
