@@ -348,30 +348,43 @@ async function fetchGitHubData() {
         return;
     }
     
+    console.log('Starting fetch for users:', githubUsers);
+    
     try {
         leaderboardData = [];
         let successCount = 0;
         
         for (const username of githubUsers) {
             try {
+                console.log(`Fetching data for ${username}...`);
+                
                 // Fetch user data
                 const userResponse = await fetch(`https://api.github.com/users/${username}`);
+                
+                console.log(`Response for ${username}: Status ${userResponse.status}`);
                 
                 if (!userResponse.ok) {
                     // Check for rate limit
                     if (userResponse.status === 403) {
                         const remaining = userResponse.headers.get('x-ratelimit-remaining');
                         console.warn(`GitHub API rate limit hit. Remaining requests: ${remaining}`);
+                        showNotification('⚠️ GitHub API rate limit reached. Try again in a minute.', 'error');
+                    } else {
+                        console.error(`User ${username} not found (Status: ${userResponse.status})`);
                     }
-                    console.error(`User ${username} not found (Status: ${userResponse.status})`);
                     continue;
                 }
                 
                 const userData = await userResponse.json();
+                console.log(`User data loaded for ${username}:`, userData);
                 
                 // Get public repos to count commits
                 const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=100`);
+                if (!reposResponse.ok) {
+                    console.warn(`Could not fetch repos for ${username}, continuing with user data only`);
+                }
                 const repos = await reposResponse.json();
+                console.log(`Repos loaded for ${username}:`, repos.length, 'repos');
                 
                 // Calculate contributions from public activity
                 const contributions = {
@@ -396,12 +409,15 @@ async function fetchGitHubData() {
                 });
                 
                 successCount++;
+                console.log(`✓ Added ${username} to leaderboard. Total: ${leaderboardData.length}`);
                 
             } catch (error) {
-                console.error(`Error fetching data for ${username}:`, error);
-                apiErrorCount++;
+                console.error(`Error fetching data for ${username}:`, error.message);
+                showNotification(`❌ Error loading @${username}: ${error.message}`, 'error');
             }
         }
+        
+        console.log(`Fetch complete. Loaded ${successCount} users out of ${githubUsers.length}`);
         
         // Sort by score
         leaderboardData.sort((a, b) => b.score - a.score);
@@ -410,13 +426,16 @@ async function fetchGitHubData() {
         if (leaderboardData.length > 0) {
             cacheLeaderboardData();
             apiErrorCount = 0; // Reset error count on success
+            console.log('Data cached successfully');
         } else {
             // No data fetched - try to use cache
+            console.log('No data fetched. Attempting to load from cache...');
             const cachedData = loadCachedLeaderboardData();
             if (cachedData && cachedData.length > 0) {
                 leaderboardData = cachedData;
                 const cacheAge = getCacheAgeMinutes();
                 showNotification(`⚠ Showing last saved data (${cacheAge} min old)`, 'warning');
+                console.log('Loaded from cache:', cachedData.length, 'users');
             }
         }
         
