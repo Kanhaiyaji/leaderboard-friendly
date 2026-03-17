@@ -78,22 +78,32 @@ function hideLoader() {
 
 // Setup Event Listeners
 function setupEventListeners() {
-    document.getElementById('addUserBtn').addEventListener('click', handleAddUser);
-    document.getElementById('refreshBtn').addEventListener('click', () => {
+    const addBtn = document.getElementById('addUserBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const presetBtn = document.getElementById('presetBtn');
+    const resetBtn = document.getElementById('resetUsersBtn');
+    const input = document.getElementById('newUserInput');
+    
+    if (addBtn) addBtn.addEventListener('click', handleAddUser);
+    if (refreshBtn) refreshBtn.addEventListener('click', () => {
         showLoader();
         fetchGitHubData();
     });
-    document.getElementById('presetBtn').addEventListener('click', loadPresetUsers);
-    document.getElementById('resetUsersBtn').addEventListener('click', resetAllUsers);
-    
-    document.getElementById('newUserInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleAddUser();
+    if (presetBtn) presetBtn.addEventListener('click', loadPresetUsers);
+    if (resetBtn) resetBtn.addEventListener('click', resetAllUsers);
+    if (input) input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddUser();
+        }
     });
 }
 
 // Handle Add User
 function handleAddUser() {
     const input = document.getElementById('newUserInput');
+    if (!input) return;
+    
     const username = input.value.trim();
     
     if (!username) {
@@ -103,6 +113,7 @@ function handleAddUser() {
     
     if (githubUsers.includes(username)) {
         alert('This user is already tracked');
+        input.value = '';
         return;
     }
     
@@ -115,6 +126,7 @@ function handleAddUser() {
     saveUsersToStorage();
     renderTrackedUsers();
     input.value = '';
+    input.focus();
     
     showLoader();
     fetchGitHubData();
