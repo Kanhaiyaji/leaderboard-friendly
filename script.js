@@ -1,5 +1,7 @@
-// Storage keys
-const STORAGE_KEY = 'github_leaderboard_users';
+// Backend API configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://leaderboard-api.vercel.app'  // Update this with your deployed backend URL
+    : 'http://localhost:5000';
 const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
 const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
 
@@ -341,101 +343,50 @@ function resetAllUsers() {
     }
 }
 
-// Fetch GitHub user data
+// Fetch GitHub user data from backend API
 async function fetchGitHubData() {
     if (githubUsers.length === 0) {
         hideLoader();
         return;
     }
     
-    console.log('Starting fetch for users:', githubUsers);
+    const userList = githubUsers.join(',');
+    console.log('Fetching leaderboard data from backend for users:', userList);
     
     try {
-        leaderboardData = [];
-        let successCount = 0;
+        // Call our backend API (much simpler!)
+        const response = await fetch(`${API_BASE_URL}/api/leaderboard?users=${encodeURIComponent(userList)}`);
         
-        for (const username of githubUsers) {
-            try {
-                console.log(`Fetching data for ${username}...`);
-                
-                // Fetch user data
-                const userResponse = await fetch(`https://api.github.com/users/${username}`);
-                
-                console.log(`Response for ${username}: Status ${userResponse.status}`);
-                
-                if (!userResponse.ok) {
-                    // Check for rate limit
-                    if (userResponse.status === 403) {
-                        const remaining = userResponse.headers.get('x-ratelimit-remaining');
-                        console.warn(`GitHub API rate limit hit. Remaining requests: ${remaining}`);
-                        showNotification('⚠️ GitHub API rate limit reached. Try again in a minute.', 'error');
-                    } else {
-                        console.error(`User ${username} not found (Status: ${userResponse.status})`);
-                    }
-                    continue;
-                }
-                
-                const userData = await userResponse.json();
-                console.log(`User data loaded for ${username}:`, userData);
-                
-                // Get public repos to count commits
-                const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=100`);
-                if (!reposResponse.ok) {
-                    console.warn(`Could not fetch repos for ${username}, continuing with user data only`);
-                }
-                const repos = await reposResponse.json();
-                console.log(`Repos loaded for ${username}:`, repos.length, 'repos');
-                
-                // Calculate contributions from public activity
-                const contributions = {
-                    public_repos: userData.public_repos || 0,
-                    public_gists: userData.public_gists || 0,
-                    followers: userData.followers || 0,
-                    profile_link: userData.html_url,
-                    avatar: userData.avatar_url,
-                    contributions: calculateContributions(userData, repos)
-                };
-                
-                leaderboardData.push({
-                    id: username,
-                    name: userData.name || username,
-                    username: username,
-                    score: contributions.contributions,
-                    avatar: userData.avatar_url,
-                    repos: userData.public_repos,
-                    followers: userData.followers,
-                    profile: userData.html_url,
-                    timestamp: new Date().toISOString()
-                });
-                
-                successCount++;
-                console.log(`✓ Added ${username} to leaderboard. Total: ${leaderboardData.length}`);
-                
-            } catch (error) {
-                console.error(`Error fetching data for ${username}:`, error.message);
-                showNotification(`❌ Error loading @${username}: ${error.message}`, 'error');
-            }
+        console.log(`Backend response status: ${response.status}`);
+        
+        if (!response.ok) {
+            throw new Error(`Backend API error: ${response.status}`);
         }
         
-        console.log(`Fetch complete. Loaded ${successCount} users out of ${githubUsers.length}`);
+        const result = await response.json();
+        console.log('Leaderboard data received:', result);
         
-        // Sort by score
-        leaderboardData.sort((a, b) => b.score - a.score);
-        
-        // Cache successful data
-        if (leaderboardData.length > 0) {
+        if (result.success && result.data && result.data.length > 0) {
+            // Use the data from backend
+            leaderboardData = result.data;
+            
+            // Cache the data
             cacheLeaderboardData();
-            apiErrorCount = 0; // Reset error count on success
-            console.log('Data cached successfully');
+            apiErrorCount = 0;
+            
+            console.log(`✓ Loaded ${leaderboardData.length} users successfully`);
+            showNotification(`✓ Leaderboard updated with ${leaderboardData.length} users!`, 'success');
         } else {
-            // No data fetched - try to use cache
-            console.log('No data fetched. Attempting to load from cache...');
+            // Try to use cached data
+            console.log('No valid data from backend. Loading from cache...');
             const cachedData = loadCachedLeaderboardData();
             if (cachedData && cachedData.length > 0) {
                 leaderboardData = cachedData;
                 const cacheAge = getCacheAgeMinutes();
                 showNotification(`⚠ Showing last saved data (${cacheAge} min old)`, 'warning');
-                console.log('Loaded from cache:', cachedData.length, 'users');
+            } else {
+                leaderboardData = [];
+                showNotification('❌ Unable to load data. Check usernames.', 'error');
             }
         }
         
@@ -445,16 +396,20 @@ async function fetchGitHubData() {
         hideLoader();
         
     } catch (error) {
-        console.error('Error fetching GitHub data:', error);
+        console.error('Error fetching from backend:', error.message);
         
-        // Try to show cached data
+        // Try cached data as fallback
         const cachedData = loadCachedLeaderboardData();
         if (cachedData && cachedData.length > 0) {
             leaderboardData = cachedData;
             loadLeaderboard();
             updateLastRefreshTime();
             const cacheAge = getCacheAgeMinutes();
-            showNotification(`⚠ Showing last saved data (${cacheAge} min old). Check your internet connection.`, 'warning');
+            showNotification(`⚠ Backend error. Showing cached data (${cacheAge} min old).`, 'warning');
+        } else {
+            leaderboardData = [];
+            showNotification(`❌ Error: ${error.message}`, 'error');
+            loadLeaderboard();
         }
         
         hideLoader();
