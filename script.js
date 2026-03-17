@@ -47,11 +47,11 @@ function loadUsersFromStorage() {
         try {
             githubUsers = JSON.parse(stored);
         } catch (e) {
-            githubUsers = DEFAULT_USERS;
+            githubUsers = [];
             saveUsersToStorage();
         }
     } else {
-        githubUsers = DEFAULT_USERS;
+        githubUsers = [];  // Start with empty - user adds dynamically
         saveUsersToStorage();
     }
 }
