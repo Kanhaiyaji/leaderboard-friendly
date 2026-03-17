@@ -2,6 +2,9 @@
 console.log('🚀 Script loaded! Starting initialization...');
 const API_BASE_URL = window.location.origin; // Use same origin (backend server)
 console.log('API Base URL:', API_BASE_URL);
+
+// Storage keys
+const STORAGE_KEY = 'github_leaderboard_users';
 const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
 const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
 
