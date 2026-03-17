@@ -1,7 +1,5 @@
 // Backend API configuration
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'https://leaderboard-api.vercel.app'  // Update this with your deployed backend URL
-    : 'http://localhost:5000';
+const API_BASE_URL = window.location.origin; // Use same origin (backend server)
 const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
 const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
 
