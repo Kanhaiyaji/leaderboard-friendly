@@ -1,5 +1,7 @@
 // Backend API configuration
+console.log('🚀 Script loaded! Starting initialization...');
 const API_BASE_URL = window.location.origin; // Use same origin (backend server)
+console.log('API Base URL:', API_BASE_URL);
 const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
 const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
 
@@ -17,6 +19,7 @@ let apiErrorCount = 0;
 
 // Initialize app
 function init() {
+    console.log('✅ init() called');
     loadUsersFromStorage();
     renderTrackedUsers();
     
@@ -31,6 +34,7 @@ function init() {
     showLoader();
     fetchGitHubData();
     setupEventListeners();
+    console.log('✅ Event listeners setup complete');
     
     // Auto-refresh every 30 seconds
     refreshInterval = setInterval(fetchGitHubData, 30000);
@@ -118,6 +122,7 @@ function getCacheAgeMinutes() {
 
 // Setup Event Listeners
 function setupEventListeners() {
+    console.log('📢 setupEventListeners() called');
     const addBtn = document.getElementById('addUserBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const resetBtn = document.getElementById('resetUsersBtn');
@@ -126,37 +131,67 @@ function setupEventListeners() {
     const bulkAddBtn = document.getElementById('bulkAddBtn');
     const closeBulkBtn = document.getElementById('closeBulkBtn');
     
-    if (addBtn) addBtn.addEventListener('click', handleAddUser);
-    if (refreshBtn) refreshBtn.addEventListener('click', () => {
-        showLoader();
-        fetchGitHubData();
+    console.log('🔍 Elements found:', {
+        addBtn: !!addBtn,
+        refreshBtn: !!refreshBtn,
+        resetBtn: !!resetBtn,
+        input: !!input,
+        toggleBulkBtn: !!toggleBulkBtn,
+        bulkAddBtn: !!bulkAddBtn,
+        closeBulkBtn: !!closeBulkBtn
     });
-    if (resetBtn) resetBtn.addEventListener('click', resetAllUsers);
-    if (input) input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAddUser();
-        }
-    });
+    
+    if (addBtn) {
+        console.log('✅ Adding click listener to addUserBtn');
+        addBtn.addEventListener('click', handleAddUser);
+    }
+    if (refreshBtn) {
+        console.log('✅ Adding click listener to refreshBtn');
+        refreshBtn.addEventListener('click', () => {
+            showLoader();
+            fetchGitHubData();
+        });
+    }
+    if (resetBtn) {
+        console.log('✅ Adding click listener to resetBtn');
+        resetBtn.addEventListener('click', resetAllUsers);
+    }
+    if (input) {
+        console.log('✅ Adding keypress listener to input');
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddUser();
+            }
+        });
+    }
     
     // Bulk Add Event Listeners
     if (toggleBulkBtn) {
+        console.log('✅ Adding click listener to toggleBulkBtn');
         toggleBulkBtn.addEventListener('click', toggleBulkAddSection);
     }
     if (bulkAddBtn) {
+        console.log('✅ Adding click listener to bulkAddBtn');
         bulkAddBtn.addEventListener('click', handleBulkAddUsers);
     }
     if (closeBulkBtn) {
+        console.log('✅ Adding click listener to closeBulkBtn');
         closeBulkBtn.addEventListener('click', closeBulkAddSection);
     }
 }
 
 // Handle Add User
 function handleAddUser() {
+    console.log('🔘 handleAddUser() clicked!');
     const input = document.getElementById('newUserInput');
-    if (!input) return;
+    if (!input) {
+        console.error('❌ Input not found');
+        return;
+    }
     
     const username = input.value.trim();
+    console.log('📝 Username:', username);
     
     if (!username) {
         showNotification('Please enter a GitHub username', 'error');
@@ -516,6 +551,7 @@ function escapeHtml(text) {
 
 // Initialize on page load
 window.addEventListener('load', () => {
+    console.log('🔄 Page loaded, initializing app');
     setTimeout(init, 500);
 });
 
