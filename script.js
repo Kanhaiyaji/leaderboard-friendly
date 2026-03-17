@@ -1,6 +1,8 @@
 // Default GitHub Users
 const DEFAULT_USERS = ['Kanhaiyaji', 'ius-sharma', 'stillaayush', 'raj-git-07'];
 const STORAGE_KEY = 'github_leaderboard_users';
+const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
+const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
 
 // Emoji medals for top 3
 const medals = {
@@ -12,11 +14,21 @@ const medals = {
 let githubUsers = [];
 let leaderboardData = [];
 let refreshInterval = null;
+let apiErrorCount = 0;
 
 // Initialize app
 function init() {
     loadUsersFromStorage();
     renderTrackedUsers();
+    
+    // Load cached data first so user sees something while API loads
+    const cachedData = loadCachedLeaderboardData();
+    if (cachedData && cachedData.length > 0) {
+        leaderboardData = cachedData;
+        loadLeaderboard();
+        updateLastRefreshTime();
+    }
+    
     showLoader();
     fetchGitHubData();
     setupEventListeners();
@@ -74,6 +86,35 @@ function showLoader() {
 // Hide loader
 function hideLoader() {
     document.getElementById('loader').classList.remove('active');
+}
+
+// Save leaderboard to cache
+function cacheLeaderboardData() {
+    if (leaderboardData.length > 0) {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(leaderboardData));
+        localStorage.setItem(CACHE_EXPIRY_KEY, Date.now().toString());
+    }
+}
+
+// Load cached leaderboard
+function loadCachedLeaderboardData() {
+    try {
+        const cached = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+    } catch (e) {
+        console.error('Error loading cache:', e);
+    }
+    return null;
+}
+
+// Get cache age in minutes
+function getCacheAgeMinutes() {
+    const cacheTime = localStorage.getItem(CACHE_EXPIRY_KEY);
+    if (!cacheTime) return null;
+    const ageMs = Date.now() - parseInt(cacheTime);
+    return Math.floor(ageMs / 60000);
 }
 
 // Setup Event Listeners
@@ -322,6 +363,7 @@ async function fetchGitHubData() {
     
     try {
         leaderboardData = [];
+        let successCount = 0;
         
         for (const username of githubUsers) {
             try {
@@ -329,7 +371,12 @@ async function fetchGitHubData() {
                 const userResponse = await fetch(`https://api.github.com/users/${username}`);
                 
                 if (!userResponse.ok) {
-                    console.error(`User ${username} not found`);
+                    // Check for rate limit
+                    if (userResponse.status === 403) {
+                        const remaining = userResponse.headers.get('x-ratelimit-remaining');
+                        console.warn(`GitHub API rate limit hit. Remaining requests: ${remaining}`);
+                    }
+                    console.error(`User ${username} not found (Status: ${userResponse.status})`);
                     continue;
                 }
                 
@@ -361,13 +408,30 @@ async function fetchGitHubData() {
                     timestamp: new Date().toISOString()
                 });
                 
+                successCount++;
+                
             } catch (error) {
                 console.error(`Error fetching data for ${username}:`, error);
+                apiErrorCount++;
             }
         }
         
         // Sort by score
         leaderboardData.sort((a, b) => b.score - a.score);
+        
+        // Cache successful data
+        if (leaderboardData.length > 0) {
+            cacheLeaderboardData();
+            apiErrorCount = 0; // Reset error count on success
+        } else {
+            // No data fetched - try to use cache
+            const cachedData = loadCachedLeaderboardData();
+            if (cachedData && cachedData.length > 0) {
+                leaderboardData = cachedData;
+                const cacheAge = getCacheAgeMinutes();
+                showNotification(`⚠ Showing last saved data (${cacheAge} min old)`, 'warning');
+            }
+        }
         
         // Update UI
         loadLeaderboard();
@@ -376,6 +440,17 @@ async function fetchGitHubData() {
         
     } catch (error) {
         console.error('Error fetching GitHub data:', error);
+        
+        // Try to show cached data
+        const cachedData = loadCachedLeaderboardData();
+        if (cachedData && cachedData.length > 0) {
+            leaderboardData = cachedData;
+            loadLeaderboard();
+            updateLastRefreshTime();
+            const cacheAge = getCacheAgeMinutes();
+            showNotification(`⚠ Showing last saved data (${cacheAge} min old). Check your internet connection.`, 'warning');
+        }
+        
         hideLoader();
     }
 }
@@ -399,11 +474,25 @@ function loadLeaderboard() {
     leaderboardList.innerHTML = '';
 
     if (leaderboardData.length === 0) {
+        const cacheAge = getCacheAgeMinutes();
+        let errorMsg = 'Unable to load GitHub data';
+        let helpMsg = 'Check usernames or click Refresh';
+        
+        if (cacheAge !== null) {
+            errorMsg = '❌ API Error or Rate Limited';
+            helpMsg = `No cached data. Try again in a few minutes.`;
+        } else if (githubUsers.length === 0) {
+            helpMsg = 'Add GitHub usernames to get started';
+        } else {
+            helpMsg = `Check username spelling or try Refresh`;
+        }
+        
         leaderboardList.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">❌</div>
-                <p>Unable to load GitHub data</p>
-                <p style="font-size: 0.9rem;">Check usernames or click Refresh</p>
+                <p>${errorMsg}</p>
+                <p style="font-size: 0.85rem; color: #aaa;">${helpMsg}</p>
+                ${githubUsers.length > 0 ? `<p style="font-size: 0.8rem; margin-top: 8px; color: #999;">Tracked: ${githubUsers.map(u => '@' + u).join(', ')}</p>` : ''}
             </div>
         `;
         return;
