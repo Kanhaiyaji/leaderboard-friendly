@@ -1,5 +1,4 @@
-// Default GitHub Users
-const DEFAULT_USERS = ['Kanhaiyaji', 'ius-sharma', 'stillaayush', 'raj-git-07'];
+// Storage keys
 const STORAGE_KEY = 'github_leaderboard_users';
 const LEADERBOARD_CACHE_KEY = 'github_leaderboard_cache';
 const CACHE_EXPIRY_KEY = 'github_leaderboard_cache_time';
